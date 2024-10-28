@@ -1,0 +1,487 @@
+
+<html lang="en">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>
+   Cultural Adaptation Chatbot
+  </title>
+  <script src="https://cdn.tailwindcss.com">
+  </script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&amp;display=swap" rel="stylesheet"/>
+  <script>
+   // Mock database
+   const mockDatabase = {
+     "how do i apply for a work permit": "To apply for a work permit, you need to visit the official immigration website and fill out the necessary forms.",
+     "what is the healthcare system like here": "The healthcare system in Canada is publicly funded and provides access to medical services for all residents.",
+     "where can i find language classes": "You can find language classes at local community centers, libraries, and educational institutions.",
+     "what are the public transport options": "Public transport options include buses, trains, and subways. You can check the local transit authority's website for schedules and routes.",
+     "how do i open a bank account": "To open a bank account, visit a local bank branch with your identification documents and proof of address.",
+     "what are the local emergency numbers": "In Canada, the emergency number is 911 for police, fire, and medical emergencies.",
+     "how do i find a job": "You can find job listings on online job boards, company websites, and through local employment agencies.",
+     "what are the local customs and etiquette": "Local customs and etiquette include being punctual, respecting personal space, and using polite language. It's also customary to tip service workers.",
+     "how do i enroll my child in school": "To enroll your child in school, contact the local school board or visit the nearest school to complete the registration process.",
+     "what are the popular local dishes": "Popular local dishes in Canada include poutine, butter tarts, and maple syrup-based dishes."
+   };
+
+   function startChat() {
+     const chatContainer = document.getElementById('chat-container');
+     const userInput = document.getElementById('user-input');
+     const sendButton = document.getElementById('send-button');
+     const fileInput = document.getElementById('file-input');
+     const translateButton = document.getElementById('translate-button');
+     const voiceSelect = document.getElementById('voice-select');
+     const voiceRecognitionButton = document.getElementById('voice-recognition-button');
+     const languageSelect = document.getElementById('language-select');
+     const languageButton = document.getElementById('language-button');
+     const languageDropdown = document.getElementById('language-dropdown');
+
+     async function translateText(text, sourceLang, targetLang) {
+       if (sourceLang === targetLang) {
+         return text;
+       }
+       const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang}|${targetLang}`);
+       const data = await response.json();
+       return data.responseData.translatedText;
+     }
+
+     async function getBotResponse(userMessage) {
+       const lowerCaseMessage = userMessage.toLowerCase();
+       return mockDatabase[lowerCaseMessage] || "I'm sorry, I don't have an answer for that.";
+     }
+
+     async function sendMessage() {
+       const userMessage = userInput.value;
+       const selectedLanguage = languageSelect.value;
+       if (userMessage.trim() !== '' && selectedLanguage) {
+         // Translate user message to English if necessary
+         const translatedUserMessage = await translateText(userMessage, selectedLanguage, 'en');
+         const userMessageElement = document.createElement('div');
+         userMessageElement.className = 'bg-blue-100 p-2 rounded mb-2';
+         userMessageElement.textContent = userMessage;
+         chatContainer.appendChild(userMessageElement);
+
+         // Get bot response in English
+         const botResponse = await getBotResponse(translatedUserMessage);
+         const translatedBotResponse = await translateText(botResponse, 'en', selectedLanguage);
+         const botMessageElement = document.createElement('div');
+         botMessageElement.className = 'bg-gray-200 p-2 rounded mb-2';
+         botMessageElement.textContent = translatedBotResponse;
+         chatContainer.appendChild(botMessageElement);
+
+         // Simulate voice output
+         const utterance = new SpeechSynthesisUtterance(translatedBotResponse);
+         const selectedVoice = voiceSelect.value;
+         if (selectedVoice) {
+           utterance.voice = speechSynthesis.getVoices().find(voice => voice.name === selectedVoice);
+         }
+         speechSynthesis.speak(utterance);
+
+         userInput.value = '';
+         chatContainer.scrollTop = chatContainer.scrollHeight;
+       }
+     }
+
+     function handleFileUpload(event) {
+       const file = event.target.files[0];
+       if (file) {
+         const fileMessageElement = document.createElement('div');
+         fileMessageElement.className = 'bg-blue-100 p-2 rounded mb-2';
+         fileMessageElement.textContent = `File uploaded: ${file.name}`;
+         chatContainer.appendChild(fileMessageElement);
+
+         // Simulate chatbot response
+         const botMessageElement = document.createElement('div');
+         botMessageElement.className = 'bg-gray-200 p-2 rounded mb-2';
+         botMessageElement.textContent = 'This is a simulated response. In a real application, this would be a response from the chatbot based on the uploaded file.';
+         chatContainer.appendChild(botMessageElement);
+
+         chatContainer.scrollTop = chatContainer.scrollHeight;
+       }
+     }
+
+     function startVoiceRecognition() {
+       const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+       recognition.lang = languageSelect.value;
+       recognition.interimResults = false;
+       recognition.maxAlternatives = 1;
+
+       recognition.onresult = async (event) => {
+         const transcript = event.results[0][0].transcript;
+         userInput.value = transcript;
+         await sendMessage();
+       };
+
+       recognition.start();
+     }
+
+     sendButton.addEventListener('click', sendMessage);
+     userInput.addEventListener('keypress', async (event) => {
+       if (event.key === 'Enter') {
+         await sendMessage();
+       }
+     });
+     fileInput.addEventListener('change', handleFileUpload);
+     translateButton.addEventListener('click', sendMessage);
+     voiceRecognitionButton.addEventListener('click', startVoiceRecognition);
+
+     // Toggle language dropdown
+     languageButton.addEventListener('click', () => {
+       languageDropdown.classList.toggle('hidden');
+     });
+
+     // Populate voice options
+     function populateVoiceList() {
+       const voices = speechSynthesis.getVoices();
+       voiceSelect.innerHTML = '';
+       voices.forEach(voice => {
+         const option = document.createElement('option');
+         option.value = voice.name;
+         option.textContent = `${voice.name} (${voice.lang})`;
+         voiceSelect.appendChild(option);
+       });
+     }
+
+     populateVoiceList();
+     if (speechSynthesis.onvoiceschanged !== undefined) {
+       speechSynthesis.onvoiceschanged = populateVoiceList;
+     }
+   }
+
+   document.addEventListener('DOMContentLoaded', startChat);
+  </script>
+ </head>
+ <body class="bg-gray-100 font-roboto">
+  <header class="bg-blue-600 text-white p-4">
+   <div class="container mx-auto flex justify-between items-center">
+    <h1 class="text-2xl font-bold">
+     Cultural Adaptation Chatbot
+    </h1>
+    <nav>
+     <ul class="flex space-x-4">
+      <li>
+       <a class="hover:underline" href="#">
+        Home
+       </a>
+      </li>
+      <li>
+       <a class="hover:underline" href="#features">
+        Features
+       </a>
+      </li>
+      <li>
+       <a class="hover:underline" href="#">
+        About
+       </a>
+      </li>
+      <li>
+       <a class="hover:underline" href="#chatbot">
+        Chat
+       </a>
+      </li>
+     </ul>
+    </nav>
+   </div>
+  </header>
+  <main class="container mx-auto mt-8 p-4">
+   <section class="bg-white p-6 rounded-lg shadow-lg">
+    <h2 class="text-xl font-bold mb-4">
+     Welcome to the Cultural Adaptation Chatbot
+    </h2>
+    <p class="mb-4">
+     Our chatbot is here to help you integrate smoothly into your new country by providing instant and accessible information about culture, daily life, and administrative processes.
+    </p>
+    <img alt="Illustration of a friendly chatbot assisting a newcomer with various cultural and administrative questions in Canada, with Canadian landmarks like the CN Tower and maple leaves in the background" class="w-full h-auto rounded-lg mb-4" height="400" src="https://storage.googleapis.com/a1aa/image/AJEaHYf8WQywAieQx4RFCiJp6Q7Qf93f7eJrRimq0GtBe2s6E.jpg" width="600"/>
+    <button class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" onclick="window.location.href='#chatbot'">
+     Get Started
+    </button>
+   </section>
+   <section class="mt-8" id="features">
+    <h2 class="text-xl font-bold mb-4">
+     Core Features
+    </h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+     <div class="bg-white p-6 rounded-lg shadow-lg">
+      <i class="fas fa-robot text-blue-600 text-3xl mb-4">
+      </i>
+      <h3 class="text-lg font-bold mb-2">
+       AI-Powered Q&amp;A System
+      </h3>
+      <p>
+       The chatbot uses natural language processing (NLP) to answer common questions immigrants might have, such as applying for a work permit, understanding the healthcare system, and finding language classes.
+      </p>
+     </div>
+     <div class="bg-white p-6 rounded-lg shadow-lg">
+      <i class="fas fa-user-cog text-blue-600 text-3xl mb-4">
+      </i>
+      <h3 class="text-lg font-bold mb-2">
+       Personalized Guidance
+      </h3>
+      <p>
+       The chatbot gathers basic user information to offer tailored information and recommendations, focusing on specific needs like educational opportunities for students.
+      </p>
+     </div>
+     <div class="bg-white p-6 rounded-lg shadow-lg">
+      <i class="fas fa-map-marker-alt text-blue-600 text-3xl mb-4">
+      </i>
+      <h3 class="text-lg font-bold mb-2">
+       Local Resource Suggestions
+      </h3>
+      <p>
+       AI curates a list of nearby resources like community centers, language schools, job placement agencies, and cultural events based on the user’s location.
+      </p>
+     </div>
+     <div class="bg-white p-6 rounded-lg shadow-lg">
+      <i class="fas fa-language text-blue-600 text-3xl mb-4">
+      </i>
+      <h3 class="text-lg font-bold mb-2">
+       Language Support
+      </h3>
+      <p>
+       The bot supports multiple languages and provides real-time translation to facilitate easier communication.
+      </p>
+     </div>
+     <div class="bg-white p-6 rounded-lg shadow-lg">
+      <i class="fas fa-lightbulb text-blue-600 text-3xl mb-4">
+      </i>
+      <h3 class="text-lg font-bold mb-2">
+       Daily Tips and Cultural Learning Bites
+      </h3>
+      <p>
+       The chatbot sends daily messages with short cultural tips, such as common phrases, local customs, or simple survival tips like using public transport.
+      </p>
+     </div>
+    </div>
+   </section>
+   <section class="mt-8 bg-white p-6 rounded-lg shadow-lg" id="chatbot">
+    <h2 class="text-xl font-bold mb-4">
+     Chat with Us
+    </h2>
+    <div class="bg-gray-100 p-4 rounded-lg">
+     <p class="mb-4">
+      How can we assist you today? Ask us anything about your new country’s culture, daily life, or administrative processes.
+     </p>
+     <section class="mt-8 bg-white p-6 rounded-lg shadow-lg" id="chatbot">
+    <h2 class="text-xl font-bold mb-4">
+        Chat with Us
+    </h2>
+    <div class="bg-gray-100 p-4 rounded-lg">
+        <p class="mb-4">
+            How can we assist you today? Ask us anything about your new country’s culture, daily life, or administrative processes.
+        </p>
+        <div class="bg-white p-4 rounded-lg shadow-inner" id="chat-container" style="height: 300px; overflow-y: auto;">
+            <iframe src="https://www.blackbox.ai/agent/Immigo97exrCq" style="width: 100%; height: 200%; border: none;"></iframe>
+        </div>
+    </div>
+</section>
+     <div class="mt-4 flex">
+      <input class="flex-1 p-2 border rounded-l-lg" id="user-input" placeholder="Type your message here..." type="text"/>
+      <button class="bg-blue-600 text-white px-4 py-2 rounded-r-lg hover:bg-blue-700" id="send-button">
+       Send
+      </button>
+     </div>
+     <div class="mt-4 flex space-x-4">
+      <input class="flex-1 p-2 border rounded-lg" id="file-input" type="file"/>
+     </div>
+     <div class="mt-4 flex space-x-4">
+      <button class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700" id="translate-button">
+       Translate
+      </button>
+      <select class="flex-1 p-2 border rounded-lg" id="voice-select">
+       <option value="">
+        Select Voice
+       </option>
+      </select>
+     </div>
+     <div class="mt-4 flex space-x-4">
+      <button class="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700" id="voice-recognition-button">
+       Start Voice Recognition
+      </button>
+     </div>
+     <div class="mt-4 flex space-x-4">
+      <button class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" id="language-button">
+       <i class="fas fa-globe">
+       </i>
+      </button>
+      <div class="relative">
+       <div class="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg hidden" id="language-dropdown">
+        <select class="w-full p-2 border rounded-lg" id="language-select">
+         <option value="en">
+          English
+         </option>
+         <option value="es">
+          Spanish
+         </option>
+         <option value="fr">
+          French
+         </option>
+         <option value="de">
+          German
+         </option>
+         <option value="it">
+          Italian
+         </option>
+         <option value="zh-CN">
+          Chinese (Simplified)
+         </option>
+         <option value="ja">
+          Japanese
+         </option>
+         <option value="ko">
+          Korean
+         </option>
+         <option value="ar">
+          Arabic
+         </option>
+         <option value="ar-SA">
+          Arabic (Saudi Arabia)
+         </option>
+         <option value="ar-EG">
+          Arabic (Egypt)
+         </option>
+         <option value="ar-AE">
+          Arabic (United Arab Emirates)
+         </option>
+         <option value="ar-MA">
+          Arabic (Morocco)
+         </option>
+         <option value="ar-LB">
+          Arabic (Lebanon)
+         </option>
+         <option value="ar-JO">
+          Arabic (Jordan)
+         </option>
+         <option value="ar-IQ">
+          Arabic (Iraq)
+         </option>
+         <option value="ar-KW">
+          Arabic (Kuwait)
+         </option>
+         <option value="ar-OM">
+          Arabic (Oman)
+         </option>
+         <option value="ar-QA">
+          Arabic (Qatar)
+         </option>
+         <option value="ar-BH">
+          Arabic (Bahrain)
+         </option>
+         <option value="ar-SY">
+          Arabic (Syria)
+         </option>
+         <option value="ar-TN">
+          Arabic (Tunisia)
+         </option>
+         <option value="ar-YE">
+          Arabic (Yemen)
+         </option>
+         <option value="ar-DZ">
+          Arabic (Algeria)
+         </option>
+         <option value="ar-LY">
+          Arabic (Libya)
+         </option>
+         <option value="ar-SD">
+          Arabic (Sudan)
+         </option>
+         <option value="ar-PS">
+          Arabic (Palestine)
+         </option>
+         <option value="ar-SO">
+          Arabic (Somalia)
+         </option>
+         <option value="ru">
+          Russian
+         </option>
+         <option value="pt">
+          Portuguese
+         </option>
+         <option value="hi">
+          Hindi
+         </option>
+         <option value="bn">
+          Bengali
+         </option>
+         <option value="pa">
+          Punjabi
+         </option>
+         <option value="jv">
+          Javanese
+         </option>
+         <option value="ms">
+          Malay
+         </option>
+         <option value="sw">
+          Swahili
+         </option>
+         <option value="vi">
+          Vietnamese
+         </option>
+         <option value="th">
+          Thai
+         </option>
+         <option value="tr">
+          Turkish
+         </option>
+         <option value="fa">
+          Persian
+         </option>
+         <option value="ur">
+          Urdu
+         </option>
+         <option value="ta">
+          Tamil
+         </option>
+         <option value="te">
+          Telugu
+         </option>
+         <option value="mr">
+          Marathi
+         </option>
+         <option value="kn">
+          Kannada
+         </option>
+         <option value="ml">
+          Malayalam
+         </option>
+         <option value="gu">
+          Gujarati
+         </option>
+         <option value="or">
+          Odia
+         </option>
+         <option value="my">
+          Burmese
+         </option>
+         <option value="km">
+          Khmer
+         </option>
+         <option value="si">
+          Sinhala
+         </option>
+         <option value="am">
+          Amharic
+         </option>
+         <option value="ne">
+          Nepali
+         </option>
+         <option value="ha">
+          Hausa
+         </option>
+         <option value="yo">
+          Yoruba
+         </option>
+         <option value="ig">
+          Igbo
+         </option>
+         <option value="zu">
+          Zulu
+         </option>
+        </select>
+       </div>
+      </div>
+     </div>
+    </div>
+index test.html
+Displaying index test.html.
